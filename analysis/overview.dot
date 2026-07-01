@@ -1,0 +1,93 @@
+// ============================================================
+// King of Rubble — 顶层状态机（4 大子状态 + 转移仪式）
+//
+// 关键机制：
+//   • 4 个 Phase 由不同 SE 标识（互斥），每次 Activate 顶层选一个分支
+//   • Phase 内部转移在各自的 phaseXX.dot 里
+//   • 顶层转移（Phase 之间）只发生在 3 个"仪式点"：
+//       - Act18 首次释放：P1-A → P1-B（内部仪式，SE 60547 上身）
+//       - HP=0 死亡演出 + 模型替换：P1-B → P2-A（外部注入 SE 60546）
+//       - Act38 首次释放：P2-A → P2-B（内部仪式，SE 60545 上身）
+//
+// 【为什么"从后往前判"】
+//   Activate 的 elseif 顺序是 60545 → 60546 → 60547 → else(P1-A)
+//   这是"insertion-order accretion"：新加的阶段塞在最前面，
+//   老阶段沉到 else 兜底。物理顺序 = 开发时间倒序。
+// ============================================================
+digraph Overview {
+    graph [rankdir=LR, fontname="Consolas", splines=ortho, nodesep=0.6, ranksep=1.5,
+           bgcolor="#fafafa", labelloc="t", fontsize=13,
+           label="King of Rubble — 顶层状态机\n（4 大子状态 + 3 个转移仪式）"];
+    node  [fontname="Consolas", fontsize=11, style="rounded,filled"];
+    edge  [fontname="Consolas", fontsize=10];
+
+    // ==================== 4 个 Phase ====================
+    P1A [label="Phase 1-A\n────────\nSE: (无标签，else 兜底)\n\n招式家族:\n• 普攻 slot 1-5\n• 走位 slot 40-42\n\n特点:\n• 无红刀、无吸球、无乱舞\n• 最朴素的战斗形态",
+         shape=box, fillcolor="#dff5d8", color="#7ab97a", penwidth=2];
+
+    P1B [label="Phase 1-B\n────────\nSE: 60547\n\n招式家族:\n• 普攻 slot 1-5\n• 红刀链 10→11→12→13\n• 吸球链 15→(16|17)→18\n• 乱舞 slot 14\n• 走位 slot 40-42\n\n特点:\n• 超大球退化为大招\n• 引入两条 combo chain",
+         shape=box, fillcolor="#d8f0f5", color="#7aa9b9", penwidth=2];
+
+    P2A [label="Phase 2-A（DragonForm）\n────────\nSE: 60546\n\n招式家族:\n• 二阶普攻 slot 20-24\n• 二阶红刀链 30→31→32\n• 飞扑 slot 37\n• 甩尸块 35/45\n• 乱舞 slot 36\n• 走位 slot 40-42\n\n特点:\n• 模型替换\n• 部分动画共用编号 (A001_XXXX)",
+         shape=box, fillcolor="#f5e0d8", color="#b98a7a", penwidth=2];
+
+    P2B [label="Phase 2-B\n────────\nSE: 60545\n\n招式家族:\n• P2-A 的全部\n• + 长吼叫 slot 38 大招化\n• + HP<0.2 处决 slot 18\n\n特点:\n• 长吼叫退化为大招\n• 血低时自动叠加处决权重",
+         shape=box, fillcolor="#f5d8d8", color="#b97a7a", penwidth=2.5];
+
+    // ==================== 转移仪式 ====================
+    R1 [label="🎬 转移仪式 1\n───────\nAct18 首次释放\n(超大球)\n\n• 由 P1-A 权重池 slot 15/18\n  在 HP<某阈值时抽到\n• 动画 track 加 60547\n• 之后 Act18 变常规大招",
+        shape=note, fillcolor="#fff0d6", color="#cc9966"];
+
+    R2 [label="🎬 转移仪式 2\n───────\nP1-B 死亡 + 模型替换\n(DragonForm 变身)\n\n• Boss HP=0 → 播死亡演出\n• 黑屏切场\n• 换模型 (DragonForm)\n• 外部注入 60546\n\n※ 这一步在 lua 之外\n  由 ESD/EventScript/\n  DragonForm track 完成",
+        shape=note, fillcolor="#ffe0c8", color="#cc7733"];
+
+    R3 [label="🎬 转移仪式 3\n───────\nAct38 首次释放\n(长吼叫)\n\n• 由 P2-A 权重池抽到\n• 动画 track 加 60545\n• 之后 Act38 变常规大招",
+        shape=note, fillcolor="#ffd8c8", color="#cc5533"];
+
+    // ==================== 出生 & 死亡 ====================
+    START [label="⚡ Boss 唤醒\n(ESD 起立完成)", shape=circle, fillcolor="#eeeeee"];
+    END   [label="💀 真正死亡\n(P2-B HP=0)", shape=doublecircle, fillcolor="#eeeeee"];
+
+    // ==================== 转移边 ====================
+    START -> P1A [label="首次 Activate\n无 SE → 走 else"];
+
+    P1A -> R1  [label="血量到阈值\n触发 Act18", color="#cc9966", penwidth=2];
+    R1  -> P1B [label="Act18 播完\nSE 60547 上身", color="#cc9966", penwidth=2];
+
+    P1B -> R2  [label="HP=0", color="#cc3333", penwidth=2.5];
+    R2  -> P2A [label="变身完成\nSE 60546 注入", color="#cc3333", penwidth=2.5];
+
+    P2A -> R3  [label="血量到阈值\n触发 Act38", color="#cc5533", penwidth=2];
+    R3  -> P2B [label="Act38 播完\nSE 60545 上身", color="#cc5533", penwidth=2];
+
+    P2B -> END [label="HP=0", color="#000000", penwidth=2.5];
+
+    // ==================== 特殊分支（非 Phase 主流转移）====================
+    subgraph cluster_special {
+        label="特殊分支（在 Activate 顶层，但不属于 Phase 转移）";
+        style="rounded,dashed"; color="#888888";
+
+        S1 [label="🏷 60566 分支\n─────\n吸球起手回位\n(跨阶段通用)\n\n触发条件:\n刚打完吸球 15 后\n身上带 60566",
+            shape=note, fillcolor="#f0f0ff"];
+
+        S2 [label="⚠ HP<0.6 分支\n─────\n过渡期大招准备\n(通用兜底)\n\n触发条件:\nHP<0.6 且无 60520",
+            shape=note, fillcolor="#fff0f0"];
+    }
+
+    P1A -> S1 [label="临时", style=dotted, color="#888888"];
+    P1B -> S1 [label="临时", style=dotted, color="#888888"];
+    P2A -> S1 [label="临时", style=dotted, color="#888888"];
+    P2B -> S1 [label="临时", style=dotted, color="#888888"];
+
+    P1A -> S2 [label="HP<0.6", style=dotted, color="#888888"];
+    P1B -> S2 [label="HP<0.6", style=dotted, color="#888888"];
+
+    // ==================== 图例 ====================
+    subgraph cluster_legend {
+        label="图例"; style="rounded,dashed"; color="#aaaaaa";
+        rank=sink;
+        leg1 [label="橙实线 = 内部仪式（招式触发的阶段推进）", shape=plaintext];
+        leg2 [label="红粗线 = 外部仪式（HP=0 引发引擎层切换）", shape=plaintext, fontcolor="#cc3333"];
+        leg3 [label="灰点线 = 特殊分支（临时切走再切回）", shape=plaintext];
+    }
+}

@@ -1,0 +1,142 @@
+// ============================================================
+// King of Rubble — Phase 1-A 状态机（v2）
+// 触发条件：无 60545/60546/60547 SE，非 60566，HP > 0.6（else 兜底分支）
+// 源：761000_battle.dec.lua line 853-958 (权重池) + line 2147-2266 (Interrupt)
+//
+// 【三种转移边】
+//   实黑线   = Activate 权重抽签
+//   粗红线   = Interrupt append（帧标签驱动）
+//   虚灰线   = 打完 → AfterAttack
+//
+// 【节点颜色】
+//   绿色     = 纯起手招（只在权重池抽到）
+//   红色     = 纯派生招（只由 Interrupt append 触发）
+//   绿+红边  = 两栖招（既能起手又能被派生）
+//
+// 【循环闭合】
+//   AfterAttack 是每次决策的终点。SubGoal 队列跑空后引擎自动触发下次
+//   Battle Decision（回到左端 hub），此循环不画箭头，靠这段说明表达。
+// ============================================================
+digraph P1A_StateMachine {
+    graph [rankdir=LR, fontname="Consolas", splines=spline, nodesep=0.4, ranksep=1.0,
+           bgcolor="#fafafa", labelloc="t", fontsize=12,
+           label="Phase 1-A（起始阶段）— 权重池 + Interrupt 派生\n🔄 AfterAttack 之后队列空，引擎自动触发新一轮 Battle Decision（回到最左端）"];
+    node  [fontname="Consolas", fontsize=10, shape=box, style="rounded,filled"];
+    edge  [fontname="Consolas", fontsize=8];
+
+    // ==================== 决策枢纽（起点） ====================
+    { rank=source;
+    hub [label="⚙ Battle Decision\n(SubGoal 队列空时触发)\n\n• 读 dist / 朝向 / HP\n• 60590 上锁 → slot 1/2/3=0\n• 60591 上锁 → slot 41/42=0",
+         shape=hexagon, fillcolor="#fff7d6", fontsize=10];
+    }
+
+    // ==================== 起手池节点 ====================
+    subgraph cluster_startup {
+        label="起手池（权重抽签）";
+        style="rounded,filled"; fillcolor="#f3fbf0"; color="#7ab97a";
+
+        // 纯起手招（无派生边指向它）：纯绿色
+        n4 [label="重攻击\n─────\nslot 4  |  ID 3012\n关键帧: 5030\n冷却 20s", fillcolor="#dff5d8"];
+        n5 [label="近战收尾\n─────\nslot 5  |  ID 3013\n关键帧: 5031\n冷却 10s", fillcolor="#dff5d8"];
+
+        // 两栖招（既能起手也能被派生）：绿底红边
+        n1 [label="近战A\n─────\nslot 1  |  ID 3000\n关键帧: 5025\n冷却 10s\n★两栖：也可被派生",
+            fillcolor="#dff5d8", color="#cc3333", penwidth=2.5];
+        n2 [label="近战B\n─────\nslot 2  |  ID 3001\n关键帧: 5026\n冷却 20s\n★两栖：也可被派生",
+            fillcolor="#dff5d8", color="#cc3333", penwidth=2.5];
+        n3 [label="横扫\n─────\nslot 3  |  ID 3005/3010\n关键帧: 5027/5028/5029\n冷却 20s",
+            fillcolor="#dff5d8"];
+    }
+
+    // ==================== 走位节点 ====================
+    subgraph cluster_reposition {
+        label="走位池（权重抽签）";
+        style="rounded,filled"; fillcolor="#f0f4fb"; color="#7a97b9";
+
+        n40 [label="靠近\nApproachTarget\n─────\nslot 40", fillcolor="#dfe7f5"];
+        n41 [label="侧步/后撤\nSidewayMove\n─────\nslot 41", fillcolor="#dfe7f5"];
+        n42 [label="侧步\nSidewayMove\n─────\nslot 42", fillcolor="#dfe7f5"];
+    }
+
+    // ==================== 派生招（Interrupt 目标，无起手权重） ====================
+    subgraph cluster_derivatives {
+        label="派生招（不在起手池，只由 Interrupt append）";
+        style="rounded,filled"; fillcolor="#fff0f0"; color="#cc6666";
+
+        d3008 [label="重击追击\n─────\nID 3008", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3007 [label="横扫近距\n─────\nID 3007", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3006 [label="横扫中距\n─────\nID 3006", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3014 [label="二段重击\n─────\nID 3014", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+    }
+
+    // ==================== 中立位（终点） ====================
+    { rank=sink;
+    aa [label="🌬 AfterAttack\n(呼吸窗口，最长 10s)\n\n▼ 队列空 → 循环回 hub",
+        shape=note, fillcolor="#e8f8ff", fontsize=10];
+    }
+
+    // ==================== 权重抽签边（黑实线）====================
+    hub -> n1  [label="w:50~100", color=black];
+    hub -> n2  [label="w:50~100", color=black];
+    hub -> n3  [label="w:100 (稳定)", color=black];
+    hub -> n4  [label="w:0~50\n(dist<10)", color=black];
+    hub -> n5  [label="w:0~200\n(贴脸最高)", color=black];
+
+    hub -> n40 [label="w:50", color="#4477bb"];
+    hub -> n41 [label="w:0~50", color="#4477bb"];
+    hub -> n42 [label="w:0~50", color="#4477bb"];
+
+    // ==================== Interrupt append 边（粗红线，保留完整信息）====================
+    // 5025 帧 (近战A打出后)
+    n1 -> d3008 [label="🔥 5025帧\n近5m + rand≤70", color="#cc3333", penwidth=2];
+    n1 -> n2    [label="🔥 5025帧\n中5-12.5m\n(派生到 3001=slot2)", color="#cc3333", penwidth=2];
+
+    // 5026 帧 (近战B打出后)
+    n2 -> d3008 [label="🔥 5026帧\n近5m", color="#cc3333", penwidth=2];
+    n2 -> n2    [label="🔥 5026帧\n中距 (ComboFinal)\n派生 3001 自身", color="#cc3333", penwidth=2];
+
+    // 5027 帧 (横扫 3005 中段)
+    n3 -> d3007 [label="🔥 5027帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2];
+    n3 -> d3006 [label="🔥 5027帧\n中15m", color="#cc3333", penwidth=2];
+
+    // 5028 帧 (横扫 3005 后段)
+    n3 -> d3007 [label="🔥 5028帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2, style=dashed];
+
+    // 5029 帧 (横扫 3005 完全后段)
+    n3 -> d3008 [label="🔥 5029帧\n近7.5m", color="#cc3333", penwidth=2];
+    n3 -> n2    [label="🔥 5029帧\n中15m\n派生到 3001", color="#cc3333", penwidth=2];
+
+    // 5030 帧 (重攻击 3012 命中)
+    n4 -> d3008 [label="🔥 5030帧\n近7.5m + rand≤70\n(重击命中后连击)", color="#cc3333", penwidth=2];
+    n4 -> n2    [label="🔥 5030帧\n中15m\n派生到 3001", color="#cc3333", penwidth=2];
+
+    // 5031 帧 (收尾 3013)
+    n5 -> d3014 [label="🔥 5031帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2];
+
+    // ==================== AfterAttack 汇聚（虚灰线，终点）====================
+    n1 -> aa [style=dashed, color="#888888"];
+    n2 -> aa [style=dashed, color="#888888"];
+    n3 -> aa [style=dashed, color="#888888"];
+    n4 -> aa [style=dashed, color="#888888"];
+    n5 -> aa [style=dashed, color="#888888"];
+
+    d3008 -> aa [style=dashed, color="#888888"];
+    d3007 -> aa [style=dashed, color="#888888"];
+    d3006 -> aa [style=dashed, color="#888888"];
+    d3014 -> aa [style=dashed, color="#888888"];
+
+    n40 -> aa [style=dashed, color="#888888"];
+    n41 -> aa [style=dashed, color="#888888"];
+    n42 -> aa [style=dashed, color="#888888"];
+
+    // ==================== 图例 ====================
+    subgraph cluster_legend {
+        label="图例"; style="rounded,dashed"; color="#aaaaaa";
+        rank=sink;
+        leg1 [label="■ 绿实线 = 权重抽签", shape=plaintext];
+        leg2 [label="━ 粗红线 = Interrupt append (帧标签驱动)", shape=plaintext, fontcolor="#cc3333"];
+        leg3 [label="┈ 虚灰线 = 打完 → AfterAttack", shape=plaintext];
+        leg4 [label="□ 绿底红边 = 两栖招 (起手+派生)", shape=plaintext];
+        leg5 [label="🔥 = 关键帧触发\n🎲 rand≤N = 概率门限", shape=plaintext];
+    }
+}

@@ -1,0 +1,180 @@
+// ============================================================
+// King of Rubble — Phase 1-B 状态机（60547 分支）
+// 触发：HasSE(60547)（Act18 超大球首次释放后）
+// 源：761000_battle.dec.lua line 547-710 (权重池) + line 2147-2266 (Interrupt P1)
+//
+// P1-B 相较 P1-A 新增：
+//   • 红刀链 slot 10 → 11 → (12|13) 由 SE 60551/60565/60567 强制驱动
+//   • 吸球链 slot 15 → (16|17) → 18 由 SE 60566/60553 驱动
+//   • 乱舞 slot 14（大范围）
+//
+// 【4 种转移边】
+//   实黑线    = Activate 权重抽签
+//   粗红线    = Interrupt append（帧标签驱动，队列内接续）
+//   紫粗线    = SE 强制转移（跨 Activate，combo chain 的核心）
+//   虚灰线    = 打完 → AfterAttack
+// ============================================================
+digraph P1B_StateMachine {
+    graph [rankdir=LR, fontname="Consolas", splines=spline, nodesep=0.4, ranksep=1.0,
+           bgcolor="#fafafa", labelloc="t", fontsize=12,
+           label="Phase 1-B（60547 — 超大球后开放态）\n新增：红刀链 + 吸球链 + 乱舞\n🔄 AfterAttack 后队列空，触发新一轮 Battle Decision（回到最左端）"];
+    node  [fontname="Consolas", fontsize=10, shape=box, style="rounded,filled"];
+    edge  [fontname="Consolas", fontsize=8];
+
+    // ==================== 决策枢纽 ====================
+    { rank=source;
+    hub [label="⚙ Battle Decision\n(SubGoal 队列空时触发)\n\n【顶层优先级】\n1. HasSE(60566) → slot 16/17\n2. HasSE(60553) → slot 18\n3. HasSE(60551) → 红刀链\n4. 距离段 × 朝向 → 权重池",
+         shape=hexagon, fillcolor="#fff7d6", fontsize=10];
+    }
+
+    // ==================== 普攻起手池 ====================
+    subgraph cluster_normal {
+        label="普攻池 + 走位（同 P1-A 结构）";
+        style="rounded,filled"; fillcolor="#f3fbf0"; color="#7ab97a";
+
+        n1 [label="近战A\n─────\nslot 1  |  ID 3000\n5025帧\n★两栖", fillcolor="#dff5d8", color="#cc3333", penwidth=2];
+        n2 [label="近战B\n─────\nslot 2  |  ID 3001\n5026帧\n★两栖", fillcolor="#dff5d8", color="#cc3333", penwidth=2];
+        n3 [label="横扫\n─────\nslot 3  |  ID 3005/3010\n5027/5028/5029帧", fillcolor="#dff5d8"];
+        n4 [label="重攻击\n─────\nslot 4  |  ID 3012\n5030帧", fillcolor="#dff5d8"];
+        n5 [label="近战收尾\n─────\nslot 5  |  ID 3013\n5031帧", fillcolor="#dff5d8"];
+
+        n40 [label="靠近\nslot 40", fillcolor="#dfe7f5"];
+        n41 [label="侧步\nslot 41", fillcolor="#dfe7f5"];
+        n42 [label="侧步\nslot 42", fillcolor="#dfe7f5"];
+    }
+
+    // ==================== 乱舞（独立大招）====================
+    subgraph cluster_wild {
+        label="乱舞（独立大招）";
+        style="rounded,filled"; fillcolor="#fbf3f0"; color="#b98a7a";
+        n14 [label="乱舞\n─────\nslot 14  |  ID 3024\n冷却 30s\n\n所有距离段权重≥150\n（近战池的高频强化项）",
+             fillcolor="#f5d8d8", color="#b97a7a", penwidth=2];
+    }
+
+    // ==================== 红刀链（combo chain）====================
+    subgraph cluster_redsword {
+        label="🔴 红刀链（combo chain — SE 强制驱动）";
+        style="rounded,filled"; fillcolor="#fdf0f0"; color="#cc3366";
+
+        n10 [label="红刀·抬手\n─────\nslot 10  |  ID 3015\n\n入口:\n身上有 60551\n但无 60565", fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+        n11 [label="红刀·架势\n─────\nslot 11  |  ID 3016\n\n入口:\n60551 + 60565\n无 60567", fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+        n12 [label="红刀·释放\n─────\nslot 12  |  ID 3017\n\n入口:\n60551 + 60565 + 60567\n（架势后触发）", fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+        n13 [label="红刀·追击拉近\n─────\nslot 13  |  ID 3018\n\n仅当 60565+60567\n且 dist>15 时权重 300\n（远距专用追击）", fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+    }
+
+    // ==================== 吸球链（combo chain）====================
+    subgraph cluster_ball {
+        label="🔵 吸球链（combo chain — SE 强制驱动）";
+        style="rounded,filled"; fillcolor="#f0f0fd"; color="#3366cc";
+
+        n15 [label="吸球·启动\n─────\nslot 15  |  ID 3025\n冷却 20s\n\n从普攻池抽到\n播完加 60566/60527", fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+        n16 [label="吸球·释放1次\n─────\nslot 16  |  ID 3026\n\n入口:\n60566 且 dist>12.5", fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+        n17 [label="吸球·释放2次\n─────\nslot 17  |  ID 3027\n\n入口:\n60566 且 dist≤12.5\n（近距变体）", fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+        n18 [label="超大球\n─────\nslot 18  |  ID 3032\n冷却 0（靠触发条件限流）\n\n入口:\n60553 触发（终结招）\n或 P1-A 转 P1-B 仪式", fillcolor="#c8d0ff", color="#3366cc", penwidth=2.5];
+    }
+
+    // ==================== 派生招（Interrupt append 目标）====================
+    subgraph cluster_derivatives {
+        label="派生招（Interrupt append，同 P1-A）";
+        style="rounded,filled"; fillcolor="#fff0f0"; color="#cc6666";
+
+        d3008 [label="重击追击\nID 3008", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3007 [label="横扫近距\nID 3007", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3006 [label="横扫中距\nID 3006", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3014 [label="二段重击\nID 3014", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+    }
+
+    // ==================== 中立位（终点）====================
+    { rank=sink;
+    aa [label="🌬 AfterAttack\n(呼吸窗口)\n\n▼ 队列空 → 循环回 hub", shape=note, fillcolor="#e8f8ff"];
+    }
+
+    // ==================== 权重抽签边（黑实线）====================
+    hub -> n1  [label="w:50~100"];
+    hub -> n2  [label="w:50~100"];
+    hub -> n3  [label="w:100"];
+    hub -> n4  [label="w:0~50"];
+    hub -> n5  [label="w:0~200"];
+
+    hub -> n14 [label="w:150 (稳定高)"];
+    hub -> n15 [label="w:0~200\n(dist>10 高)", color="#3366cc"];
+
+    hub -> n40 [label="w:50", color="#4477bb"];
+    hub -> n41 [label="w:0~75", color="#4477bb"];
+    hub -> n42 [label="w:0~75", color="#4477bb"];
+
+    // 红刀链入口是从 hub（当身上有 60551 时强制走）——但 60551 由何处加？
+    // 推测由某招（可能是特定条件下的普攻或走位）触发加 60551，进入红刀链
+    // 图上把入口用紫色 SE 强制线画出
+    hub -> n10 [label="🟣 60551 且无 60565\nSE 强制", color="#8833cc", penwidth=2.5, style=solid];
+
+    // 吸球链的分支入口
+    hub -> n16 [label="🟣 60566 + dist>12.5\nSE 强制", color="#8833cc", penwidth=2.5];
+    hub -> n17 [label="🟣 60566 + dist≤12.5\nSE 强制", color="#8833cc", penwidth=2.5];
+    hub -> n18 [label="🟣 60553\nSE 强制", color="#8833cc", penwidth=2.5];
+
+    // ==================== SE 强制转移（红刀链）====================
+    n10 -> hub [label="🟣 播完加 60565\n下次 Activate 强制 slot 11", color="#8833cc", penwidth=2, constraint=false];
+    n11 -> hub [label="🟣 播完加 60567\n下次 Activate 强制 slot 12", color="#8833cc", penwidth=2, constraint=false];
+    n12 -> hub [label="🟣 播完清 60565/60567\n回归自由抽签", color="#8833cc", penwidth=2, style=dashed, constraint=false];
+
+    // 红刀·追击（远距变体）——从 n11 分支：60565+60567+dist>15 时权重 300
+    // 视觉简化：n13 由 hub 触发（当 60565+60567 且 dist>15）
+    n13 -> hub [label="🟣 播完（追击结束）\n回归自由抽签", color="#8833cc", penwidth=2, style=dashed, constraint=false];
+
+    // ==================== 吸球链的动画 track 上身 ====================
+    n15 -> hub [label="🟣 播完加 60566/60527\n下次强制 slot 16 或 17", color="#8833cc", penwidth=2, constraint=false];
+    n16 -> hub [label="🟣 播完加 60553?\n可能触发 slot 18 (超大球)", color="#8833cc", penwidth=2, style=dashed, constraint=false];
+    n17 -> hub [label="🟣 播完加 60553\n触发 slot 18 (超大球终结)", color="#8833cc", penwidth=2, constraint=false];
+
+    // ==================== Interrupt append 边（粗红线）====================
+    n1 -> d3008 [label="🔥 5025帧\n近5m + rand≤70", color="#cc3333", penwidth=2];
+    n1 -> n2    [label="🔥 5025帧\n中5-12.5m", color="#cc3333", penwidth=2];
+
+    n2 -> d3008 [label="🔥 5026帧\n近5m", color="#cc3333", penwidth=2];
+    n2 -> n2    [label="🔥 5026帧\n中距(自派生)", color="#cc3333", penwidth=2];
+
+    n3 -> d3007 [label="🔥 5027帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2];
+    n3 -> d3006 [label="🔥 5027帧\n中15m", color="#cc3333", penwidth=2];
+    n3 -> d3008 [label="🔥 5029帧\n近", color="#cc3333", penwidth=2];
+    n3 -> n2    [label="🔥 5029帧\n中", color="#cc3333", penwidth=2];
+
+    n4 -> d3008 [label="🔥 5030帧\n近 + rand≤70", color="#cc3333", penwidth=2];
+    n4 -> n2    [label="🔥 5030帧\n中", color="#cc3333", penwidth=2];
+
+    n5 -> d3014 [label="🔥 5031帧\n近 + rand≤70", color="#cc3333", penwidth=2];
+
+    // ==================== AfterAttack 汇聚 ====================
+    n1  -> aa [style=dashed, color="#888888"];
+    n2  -> aa [style=dashed, color="#888888"];
+    n3  -> aa [style=dashed, color="#888888"];
+    n4  -> aa [style=dashed, color="#888888"];
+    n5  -> aa [style=dashed, color="#888888"];
+    n10 -> aa [style=dashed, color="#888888"];
+    n11 -> aa [style=dashed, color="#888888"];
+    n12 -> aa [style=dashed, color="#888888"];
+    n13 -> aa [style=dashed, color="#888888"];
+    n14 -> aa [style=dashed, color="#888888"];
+    n15 -> aa [style=dashed, color="#888888"];
+    n16 -> aa [style=dashed, color="#888888"];
+    n17 -> aa [style=dashed, color="#888888"];
+    n18 -> aa [style=dashed, color="#888888"];
+    d3008 -> aa [style=dashed, color="#888888"];
+    d3007 -> aa [style=dashed, color="#888888"];
+    d3006 -> aa [style=dashed, color="#888888"];
+    d3014 -> aa [style=dashed, color="#888888"];
+    n40 -> aa [style=dashed, color="#888888"];
+    n41 -> aa [style=dashed, color="#888888"];
+    n42 -> aa [style=dashed, color="#888888"];
+
+    // ==================== 图例 ====================
+    subgraph cluster_legend {
+        label="图例"; style="rounded,dashed"; color="#aaaaaa";
+        rank=sink;
+        leg1 [label="■ 黑实线 = 权重抽签", shape=plaintext];
+        leg2 [label="━ 粗红线 = Interrupt append (同队列内)", shape=plaintext, fontcolor="#cc3333"];
+        leg3 [label="🟣 紫粗线 = SE 强制 (跨 Activate, combo chain)", shape=plaintext, fontcolor="#8833cc"];
+        leg4 [label="┈ 虚灰线 = 打完 → AfterAttack", shape=plaintext];
+        leg5 [label="□ 绿底红边 = 两栖招 (起手+派生)", shape=plaintext];
+    }
+}

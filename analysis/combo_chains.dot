@@ -1,0 +1,135 @@
+// ============================================================
+// King of Rubble — Combo Chains 教学图
+//
+// 这张图不是完整的状态机，是从 P1-B/P2-A/P2-B 图里抽出两条最有
+// 教学价值的线性 combo 链，展示"依赖动画的状态机"这个核心机制。
+//
+// 【教学要点】
+//   1. combo chain 靠 SE 而不是变量当"进度计数器"
+//   2. 每个招式的动画 track 在关键帧上给自己加 SE
+//   3. 下次 Activate 读 SE，权重池被强制到唯一 slot
+//   4. 每段 combo 之间都有 AfterAttack 呼吸间隔（很短）
+//   5. 最后一段清 SE，回归自由抽签
+//
+// 【为什么这是"依赖动画的状态机"】
+//   状态转移不写在 lua 里（"打完 X 后走 Y" 这种代码）
+//   而是编码在动画 track 中（"动画 X 的第 N 帧加 SE Y"）
+//   → 状态机的"边"由动画师定义，不由程序员定义
+//   → 移除动画 = 移除状态转移，combo chain 断裂
+// ============================================================
+digraph ComboChains {
+    graph [rankdir=LR, fontname="Consolas", splines=spline, nodesep=0.5, ranksep=1.2,
+           bgcolor="#fafafa", labelloc="t", fontsize=13,
+           label="Combo Chains — 依赖动画的状态机（教学图）\n\n红刀链和吸球链是全 boss 最典型的两条线性 combo\n它们展示了『如何用 SpecialEffect 系统实现跨 Activate 的状态机』"];
+    node  [fontname="Consolas", fontsize=10, shape=box, style="rounded,filled"];
+    edge  [fontname="Consolas", fontsize=9];
+
+    // ==================== 红刀链（P1-B 版）====================
+    subgraph cluster_redsword {
+        label="🔴 红刀链 · Phase 1-B（4 段版，slot 10→11→12/13）";
+        style="rounded,filled"; fillcolor="#fdf0f0"; color="#cc3366"; fontsize=11;
+
+        r_entry [label="⚡ 进入条件\n─────\n身上有 60551\n（由何处加 SE 60551 未知，\n可能是走位/普攻某招的\n动画 track）",
+                 shape=diamond, fillcolor="#ffe0e8"];
+
+        r10 [label="Slot 10 · 红刀·抬手\n─────\nAttackID 3015\n\n播放动画时:\n[track] 加 SE 60565 (进度位1)\n[track] 加 SE 60580 (视觉:红刀显现)",
+             fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+
+        r11 [label="Slot 11 · 红刀·架势\n─────\nAttackID 3016\n\n播放动画时:\n[track] 加 SE 60567 (进度位2)\n[track] 加 SE 5980/5039 (通用flag)",
+             fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+
+        r_branch [label="⚡ 分支判定\n─────\n身上有 60565+60567\ndist>15 → 双选:\n  slot 11 w=100 (再架势)\n  slot 13 w=300 (追击拉近)\ndist≤15 → slot 12 w=100 (直接释放)",
+                  shape=diamond, fillcolor="#ffe0e8"];
+
+        r12 [label="Slot 12 · 红刀·释放\n─────\nAttackID 3017\n\n播放动画时:\n[track] 加 SE 60552 (释放完成)\n[track] 加 SE 60570 (可能:冷却锁)\n[track] 清除 60551/60565/60567",
+             fillcolor="#ffb8c8", color="#cc3366", penwidth=2.5];
+
+        r13 [label="Slot 13 · 红刀·追击拉近\n─────\nAttackID 3018\n(P1 独有，P2 无此段)\n\n仅 dist>15 时高权重\n播放后清除 combo SE",
+             fillcolor="#ffd8e0", color="#cc3366", penwidth=2];
+
+        // 呼吸节点（每段之间）
+        r_aa1 [label="🌬 AfterAttack\n(短暂呼吸)", shape=note, fillcolor="#e8f8ff"];
+        r_aa2 [label="🌬 AfterAttack\n(短暂呼吸)", shape=note, fillcolor="#e8f8ff"];
+        r_aa3 [label="🌬 AfterAttack\n(呼吸后回归自由抽签)", shape=note, fillcolor="#e8f8ff"];
+
+        r_free [label="🔄 回到 Battle Decision\n（红刀链结束，权重池自由抽签）", shape=hexagon, fillcolor="#fff7d6"];
+
+        r_entry -> r10   [label="下次 Activate\n60551 且无 60565\n→ 强制 slot 10", color="#8833cc", penwidth=2.5];
+        r10     -> r_aa1 [label="动画播完\n身上有 60551+60565", style=dashed, color="#888"];
+        r_aa1   -> r11   [label="🟣 下次 Activate\n60565 无 60567\n→ 强制 slot 11", color="#8833cc", penwidth=2.5];
+        r11     -> r_aa2 [label="动画播完\n60565+60567", style=dashed, color="#888"];
+        r_aa2   -> r_branch [label="🟣 下次 Activate\n60565+60567\n查距离", color="#8833cc", penwidth=2.5];
+        r_branch -> r12  [label="dist≤15", color="#8833cc", penwidth=2];
+        r_branch -> r13  [label="dist>15\n(w=300 极高)", color="#8833cc", penwidth=2];
+        r_branch -> r11  [label="dist>15\n(w=100 备选:再架势)", color="#8833cc", style=dashed, penwidth=1.5];
+        r12     -> r_aa3 [label="播完清 SE", style=dashed, color="#888"];
+        r13     -> r_aa3 [label="播完清 SE", style=dashed, color="#888"];
+        r_aa3   -> r_free [label="60551 已清除\n下次 Activate 走\n普攻权重池", color="#666666", style=dashed];
+    }
+
+    // ==================== 吸球链 ====================
+    subgraph cluster_ball {
+        label="🔵 吸球链（4 段版，slot 15→16/17→18）";
+        style="rounded,filled"; fillcolor="#f0f0fd"; color="#3366cc"; fontsize=11;
+
+        b_entry [label="⚡ 进入条件\n─────\n从普攻权重池抽到 slot 15\n(w=200 dist>10, w=0 dist<10)\n\n即：boss 想吸球时\n必须离玩家有一定距离",
+                 shape=diamond, fillcolor="#e0e8ff"];
+
+        b15 [label="Slot 15 · 吸球·启动\n─────\nAttackID 3025\n冷却 20s\n\n播放动画时:\n[track] 加 SE 60566 (吸球完成)\n[track] 加 SE 60527 (二阶通用)\n[track] 加 SE 5980/5039 (通用flag)",
+             fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+
+        b_branch [label="⚡ 分支判定\n─────\n身上有 60566\ndist>12.5 → slot 16 (远距释放)\ndist≤12.5 → slot 17 (近距释放)",
+                  shape=diamond, fillcolor="#e0e8ff"];
+
+        b16 [label="Slot 16 · 吸球·释放1次\n─────\nAttackID 3026\n\n播放动画时:\n[track] 加 SE 60571 (可能: 已释放1次)\n※ P2-B 中若 5401 上身\n   会 swap 到 3028/3030",
+             fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+
+        b17 [label="Slot 17 · 吸球·释放2次\n─────\nAttackID 3027\n\n播放动画时:\n[track] 加 SE 60571 + 60530\n[track] 可能加 60553 (触发 slot 18)",
+             fillcolor="#d8e0ff", color="#3366cc", penwidth=2];
+
+        b18 [label="Slot 18 · 超大球（终结/大招）\n─────\nAttackID 3032\n\n【双重身份】\nP1-A → P1-B: 首次释放作为转阶段仪式\n         [track] 加 60547 (进入 P1-B)\nP1-B/P2: 常规大招，靠触发条件限流\n         [track] 加 60513/60550 (视觉/伤害标记)",
+             fillcolor="#c8d0ff", color="#3366cc", penwidth=2.5];
+
+        b_aa1 [label="🌬 AfterAttack", shape=note, fillcolor="#e8f8ff"];
+        b_aa2 [label="🌬 AfterAttack", shape=note, fillcolor="#e8f8ff"];
+        b_aa3 [label="🌬 AfterAttack", shape=note, fillcolor="#e8f8ff"];
+
+        b_free [label="🔄 回到 Battle Decision", shape=hexagon, fillcolor="#fff7d6"];
+
+        b_entry -> b15   [label="Activate 抽签\n(黑实线，无 SE 强制)", color="black"];
+        b15     -> b_aa1 [label="播完加 60566", style=dashed, color="#888"];
+        b_aa1   -> b_branch [label="🟣 下次 Activate\n60566 → 强制", color="#8833cc", penwidth=2.5];
+        b_branch -> b16  [label="dist>12.5", color="#8833cc", penwidth=2];
+        b_branch -> b17  [label="dist≤12.5", color="#8833cc", penwidth=2];
+        b16     -> b_aa2 [label="播完", style=dashed, color="#888"];
+        b17     -> b_aa2 [label="播完加 60553?", style=dashed, color="#888"];
+        b_aa2   -> b18   [label="🟣 若 60553 上身\n→ 强制 slot 18", color="#8833cc", penwidth=2.5];
+        b_aa2   -> b_free [label="若无 60553\n吸球链结束", color="#666666", style=dashed];
+        b18     -> b_aa3 [label="播完", style=dashed, color="#888"];
+        b_aa3   -> b_free [label="回归自由抽签\n(P1 会加 60547 转阶段)", color="#666666", style=dashed];
+    }
+
+    // ==================== 教学注释（放右侧）====================
+    subgraph cluster_notes {
+        label="📖 教学要点";
+        style="rounded,filled"; fillcolor="#fffff0"; color="#999966"; fontsize=11;
+        rank=sink;
+
+        note1 [label="1. SE 是『跨 Activate 的状态变量』\n─────\nlua 局部变量每次 Activate 清零，\n没法保存『我打到哪一段了』。\n\n解决：让动画 track 在关键帧\n把『进度』写到 boss 身上（SE 60565）,\n下次 Activate 读回来。\n\n本质是把 memory 存在 game world 里，\n让引擎的 SE 系统当 storage backend。",
+               shape=note, fillcolor="#fff8d0", fontsize=9];
+
+        note2 [label="2. 每段 combo 之间都有 AfterAttack\n─────\n看似连贯的红刀 combo，\n实际是 3-4 次独立的 Activate 循环。\n\n每次都有 AfterAttack 空 Goal 插入，\n只是它很短（因为下次 Activate\n立刻抽到强制 slot），\n所以玩家感觉是『连贯 combo』。\n\n这个『极短呼吸』就是 combo 的心跳。",
+               shape=note, fillcolor="#fff8d0", fontsize=9];
+
+        note3 [label="3. 状态机的边由动画师定义\n─────\n『打完红刀·抬手后必接架势』\n这句话在 lua 里没有直接写。\n\n它是这样成立的：\n• Act10 动画的第 N 帧 track 加 60565\n• Activate 检测到 60565 → 权重强制 slot 11\n\n如果动画师没有在 track 里加 SE，\n代码依然运行，但 combo 链会断掉。\n\n→ 状态转移的所有权在动画数据里，\n  不在 lua 代码里。",
+               shape=note, fillcolor="#fff8d0", fontsize=9];
+
+        note4 [label="4. 分支存在于两处\n─────\n(a) 权重池抽签: 概率分支\n    (吸球启动: dist>10 时才可能被抽到)\n(b) SE 检测: 确定性分支\n    (60566 后按 dist 强制走 16 或 17)\n\n分支的『性质』不同：\n(a) 让 boss 有随机性\n(b) 让 combo 有确定的结构骨架\n\n两者叠加 = 有节制的不确定性。",
+               shape=note, fillcolor="#fff8d0", fontsize=9];
+
+        note5 [label="5. 双重身份招: Slot 18 (超大球)\n─────\n首次释放: P1-A → P1-B 的转阶段仪式\n         (由 P1-A 权重池的某种触发)\n\n之后释放: P1-B/P2 的常规大招\n         (由 60553 SE 触发)\n\nfrom Software 用同一个 slot 承载\n两个语义 → 减少数据量 + 保持视觉一致\n(玩家看到的都是『超大球』这一招)。",
+               shape=note, fillcolor="#fff8d0", fontsize=9];
+
+        note1 -> note2 -> note3 -> note4 -> note5 [style=invis];
+    }
+}
