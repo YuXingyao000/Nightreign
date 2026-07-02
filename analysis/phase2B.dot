@@ -81,14 +81,14 @@ digraph P2B_StateMachine {
         label="派生招";
         style="rounded,filled"; fillcolor="#fff0f0"; color="#cc6666";
 
-        d3007 [label="横扫近\nID 3007", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3011 [label="180°回身\nID 3011", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3002 [label="重击追击\nID 3002", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3023 [label="远程追击\nID 3023", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3019 [label="乱舞派生\nID 3019", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3033 [label="飞扑追击\nID 3033", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3039 [label="飞扑终结\nID 3039", fillcolor="#ffcccc", color="#cc3333", penwidth=2];
-        d3035 [label="长吼叫接续\nID 3035/3036/3037\n(rand 三段分支)", fillcolor="#ffb8b8", color="#cc3333", penwidth=2];
+        d3007 [label="⏩ 横扫近\nID 3007\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3011 [label="⏩ 180°回身\nID 3011\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3002 [label="⏩ 重击追击\nID 3002\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3023 [label="🎭 远程追击\nID 3023\n(Repeat / Final 视情境)", fillcolor="#ffddee", color="#cc6699", penwidth=2.5];
+        d3019 [label="⏩ 乱舞派生\nID 3019\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3033 [label="⏩ 飞扑追击\nID 3033\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3039 [label="🛑 飞扑终结\nID 3039\n(Final, 硬性收尾)", fillcolor="#ffb8b8", color="#cc3333", penwidth=2.5];
+        d3035 [label="🛑 长吼叫收尾\nID 3035/3036/3037\n(3 种 Final 变体, rand 抽签)", fillcolor="#ff9090", color="#cc3333", penwidth=3];
     }
 
     { rank=sink;
@@ -131,7 +131,7 @@ digraph P2B_StateMachine {
     n20 -> d3002 [label="🔥 5025帧近", color="#cc3333", penwidth=2];
     n20 -> n21   [label="🔥 5025帧中", color="#cc3333", penwidth=2];
     n21 -> d3002 [label="🔥 5026帧近", color="#cc3333", penwidth=2];
-    n21 -> n21   [label="🔥 5026帧中", color="#cc3333", penwidth=2];
+    n21 -> n21   [label="🔥 5026帧中\n🛑Final(3001)", color="#cc3333", penwidth=2.5];
 
     n22 -> d3007 [label="🔥 5027帧近", color="#cc3333", penwidth=2];
     n22 -> d3011 [label="🔥 5029帧中\n(180°回身)", color="#cc3333", penwidth=2];

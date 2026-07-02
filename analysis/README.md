@@ -13,13 +13,14 @@
 ## 阅读顺序
 
 1. **`overview.dot`** — 顶层：4 阶段 + 转移仪式（先看这张，建立宏观脑图）
-2. **`combo_chains.dot`** — 教学图：红刀链 + 吸球链（理解"依赖动画的状态机"）
-3. **`phase1A.dot`** — Phase 1-A 状态机（else 兜底分支，最简单，建议作为读图入门）
-4. **`phase1B.dot`** — Phase 1-B 状态机（60547 分支，引入 combo chain）
-5. **`phase2A.dot`** — Phase 2-A 状态机（60546 分支，DragonForm 起始）
-6. **`phase2B.dot`** — Phase 2-B 状态机（60545 分支，激烈化）
-7. **`framework_explained.md`** — Goal/SubGoal 框架的通用解释
-8. **`design_mindset.md`** — From 战斗策划的心智模型笔记
+2. **`combo_termination.dot`** — 【核心洞察】SubGoal 三分类 + Final 招是玩家学习锚点
+3. **`combo_chains.dot`** — 教学图：红刀链 + 吸球链（理解"依赖动画的状态机"）
+4. **`phase1A.dot`** — Phase 1-A 状态机（else 兜底分支，最简单，建议作为读图入门）
+5. **`phase1B.dot`** — Phase 1-B 状态机（60547 分支，引入 combo chain）
+6. **`phase2A.dot`** — Phase 2-A 状态机（60546 分支，DragonForm 起始）
+7. **`phase2B.dot`** — Phase 2-B 状态机（60545 分支，激烈化）
+8. **`framework_explained.md`** — Goal/SubGoal 框架的通用解释
+9. **`design_mindset.md`** — From 战斗策划的心智模型笔记
 
 ---
 

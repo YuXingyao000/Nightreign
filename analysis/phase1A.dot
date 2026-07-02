@@ -63,10 +63,10 @@ digraph P1A_StateMachine {
         label="派生招（不在起手池，只由 Interrupt append）";
         style="rounded,filled"; fillcolor="#fff0f0"; color="#cc6666";
 
-        d3008 [label="重击追击\n─────\nID 3008", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3007 [label="横扫近距\n─────\nID 3007", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3006 [label="横扫中距\n─────\nID 3006", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3014 [label="二段重击\n─────\nID 3014", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3008 [label="⏩ 重击追击\n─────\nID 3008\n(Repeat, 可再接)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3007 [label="⏩ 横扫近距\n─────\nID 3007\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3006 [label="⏩ 横扫中距\n─────\nID 3006\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3014 [label="⏩ 二段重击\n─────\nID 3014\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
     }
 
     // ==================== 中立位（终点） ====================
@@ -93,7 +93,7 @@ digraph P1A_StateMachine {
 
     // 5026 帧 (近战B打出后)
     n2 -> d3008 [label="🔥 5026帧\n近5m", color="#cc3333", penwidth=2];
-    n2 -> n2    [label="🔥 5026帧\n中距 (ComboFinal)\n派生 3001 自身", color="#cc3333", penwidth=2];
+    n2 -> n2    [label="🔥 5026帧\n中距 🛑Final(3001)\n打完必收 → 中距玩家看到\n近战B 常是句号", color="#cc3333", penwidth=2.5];
 
     // 5027 帧 (横扫 3005 中段)
     n3 -> d3007 [label="🔥 5027帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2];

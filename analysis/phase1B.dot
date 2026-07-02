@@ -78,10 +78,10 @@ digraph P1B_StateMachine {
         label="派生招（Interrupt append，同 P1-A）";
         style="rounded,filled"; fillcolor="#fff0f0"; color="#cc6666";
 
-        d3008 [label="重击追击\nID 3008", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3007 [label="横扫近距\nID 3007", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3006 [label="横扫中距\nID 3006", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
-        d3014 [label="二段重击\nID 3014", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3008 [label="⏩ 重击追击\nID 3008\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3007 [label="⏩ 横扫近距\nID 3007\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3006 [label="⏩ 横扫中距\nID 3006\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
+        d3014 [label="⏩ 二段重击\nID 3014\n(Repeat)", fillcolor="#ffd8d8", color="#cc3333", penwidth=2];
     }
 
     // ==================== 中立位（终点）====================
@@ -132,7 +132,7 @@ digraph P1B_StateMachine {
     n1 -> n2    [label="🔥 5025帧\n中5-12.5m", color="#cc3333", penwidth=2];
 
     n2 -> d3008 [label="🔥 5026帧\n近5m", color="#cc3333", penwidth=2];
-    n2 -> n2    [label="🔥 5026帧\n中距(自派生)", color="#cc3333", penwidth=2];
+    n2 -> n2    [label="🔥 5026帧\n中距 🛑Final(3001)\n打完必收", color="#cc3333", penwidth=2.5];
 
     n3 -> d3007 [label="🔥 5027帧\n近7.5m + rand≤70", color="#cc3333", penwidth=2];
     n3 -> d3006 [label="🔥 5027帧\n中15m", color="#cc3333", penwidth=2];

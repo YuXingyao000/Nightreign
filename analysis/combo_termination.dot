@@ -1,0 +1,108 @@
+// ============================================================
+// King of Rubble — Combo 终止规则（教学图）
+//
+// 这张图揭示 FS 一个非常隐蔽的设计：
+// combo 深度不由计数器控制，而由「结束招式的类型」控制。
+//
+// 【SubGoal 类型 = 战斗语法】
+//   • ComboTunable   = 起手（"这句话开始了"）
+//   • ComboRepeat    = 中段（"还没说完"）
+//   • ComboFinal     = 收尾（"句号"）
+//
+// 玩家在多次战斗后会「下意识」记住 boss 的行为模式——不是记招数，
+// 而是记「哪些招看起来像开头」「哪些像收尾」。这就是 FS 用招式
+// 视觉设计 + Final 归类实现的「非语言的战斗语法」。
+// ============================================================
+digraph ComboTermination {
+    graph [rankdir=TB, fontname="Consolas", splines=spline, nodesep=0.4, ranksep=0.9,
+           bgcolor="#fafafa", labelloc="t", fontsize=13,
+           label="Combo 终止规则 — 「Final 招」是玩家学习的锚点\n\n设计意图：让玩家通过视觉/听觉识别 combo 结尾，\n形成「这一段结束了，我可以反击」的直觉判断。"];
+    node  [fontname="Consolas", fontsize=10, shape=box, style="rounded,filled"];
+    edge  [fontname="Consolas", fontsize=9];
+
+    // ==================== SubGoal 三分类 ====================
+    subgraph cluster_types {
+        label="SubGoal 三种类型（隐藏语法）";
+        style="rounded,filled"; fillcolor="#fffff0"; color="#999966"; fontsize=11;
+
+        t_start [label="ComboTunable\n─────\n起手 SubGoal\n\n特征：\n• 由 Activate 抽签调用\n• 有前摇\n• Approach_Act_Flex 调整距离\n• TurnSpeed 大\n\n玩家感受：\n『boss 要出招了』",
+                 shape=box, fillcolor="#dff5d8", color="#7ab97a", penwidth=2];
+
+        t_mid   [label="ComboRepeat\n─────\n中段 SubGoal\n\n特征：\n• 由 Interrupt append\n• 紧接前一招\n• 无前摇\n• TurnSpeed 小或 0\n• 播完可再触发 Interrupt\n\n玩家感受：\n『还没完，别急着反击』",
+                 shape=box, fillcolor="#ffeac0", color="#cc9966", penwidth=2];
+
+        t_end   [label="ComboFinal\n─────\n收尾 SubGoal\n\n特征：\n• 由 Interrupt append\n• 紧接前一招\n• 播完必进 AfterAttack\n• 播放期间 Interrupt 不再 append\n\n玩家感受：\n『这段结束了，可以打』",
+                 shape=box, fillcolor="#ffb8b8", color="#cc3333", penwidth=2.5];
+
+        t_start -> t_mid [label="Interrupt 触发\n且规则表命中 Repeat", color="#cc9966"];
+        t_mid   -> t_mid [label="继续 Interrupt 触发\n（多段 combo）", color="#cc9966"];
+        t_mid   -> t_end [label="Interrupt 触发\n且规则表命中 Final", color="#cc3333"];
+        t_start -> t_end [label="也可以起手→直接收尾\n（短 combo）", color="#cc3333", style=dashed];
+        t_end   -> t_start [label="AfterAttack 后\n进入下轮 Activate", style=dashed, color="#666"];
+    }
+
+    // ==================== 全体 Final 招分类 ====================
+    subgraph cluster_finals {
+        label="🛑 Final 招（战斗语法的『句号』）— 4 组 8 个 AttackID";
+        style="rounded,filled"; fillcolor="#ffe8e8"; color="#cc3333"; fontsize=11;
+
+        F1 [label="🛑 3039\n飞扑终结\n─────\n出现在:\n• 5035帧 (60555+rand≤70)\n• 5036帧 (60545+60555)\n• 5036帧 (!60545)\n• 5038帧\n\n玩家识别: 高幅度撞击音",
+            fillcolor="#ffcccc", color="#cc3333", penwidth=2];
+
+        F2 [label="🛑 3035\n长吼叫收尾·1\n─────\n仅 5037帧的 rand 分支\n(长吼叫大招之后)\n\n玩家识别: 长吼叫的必然接续",
+            fillcolor="#ffcccc", color="#cc3333", penwidth=2];
+
+        F3 [label="🛑 3036\n长吼叫收尾·2\n─────\n仅 5037帧的 rand 分支\n\n玩家识别: 同上但变体",
+            fillcolor="#ffcccc", color="#cc3333", penwidth=2];
+
+        F4 [label="🛑 3037\n长吼叫收尾·3\n─────\n仅 5037帧的 rand 分支\n\n玩家识别: 同上但变体",
+            fillcolor="#ffcccc", color="#cc3333", penwidth=2];
+    }
+
+    // ==================== 两栖招 ====================
+    subgraph cluster_dual {
+        label="🎭 两栖招（Repeat 或 Final 视情境）— 制造不确定性";
+        style="rounded,filled"; fillcolor="#f8e8f0"; color="#cc6699"; fontsize=11;
+
+        D1 [label="🎭 3001 (近战B)\n─────\n【作为 Repeat 时】\n5025帧中距\n5029帧中距\n5030帧中距\n\n【作为 Final 时】\n★ 5026帧中距\n(打完近战B、中距玩家、5026帧)\n\n玩家学习难点:\n同一动画 3001，有时接下段，有时结束。\n无法 100% 预判 → 「魂系博弈感」",
+            fillcolor="#ffddee", color="#cc6699", penwidth=2.5];
+
+        D2 [label="🎭 3023 (远程/大蓄力)\n─────\n【作为 Repeat 时】\n5034帧 (乱舞派生远程追击)\n\n【作为 Final 时】\n★ 60592 蓄力被打断时\n(强制 ClearSubGoal + Final 3023)\n\n玩家学习难点:\n看似同一招，被打断后是硬收尾。",
+            fillcolor="#ffddee", color="#cc6699", penwidth=2.5];
+    }
+
+    // ==================== 纯 Repeat 招 ====================
+    subgraph cluster_repeats {
+        label="⏩ 纯 Repeat 招（只作中段）— 「见到它，说明还没完」";
+        style="rounded,filled"; fillcolor="#fff0d8"; color="#cc9966"; fontsize=11;
+
+        R1 [label="⏩ 3002\nP2 重击追击\n\n5025/5026/5030帧近距", fillcolor="#ffe0c0"];
+        R2 [label="⏩ 3008\nP1 重击追击\n\n5025/5026/5029/5030帧近距", fillcolor="#ffe0c0"];
+        R3 [label="⏩ 3006\n横扫中距派生\n\n5027帧中距", fillcolor="#ffe0c0"];
+        R4 [label="⏩ 3007\n横扫近距派生\n\n5027/5028/5032帧近距", fillcolor="#ffe0c0"];
+        R5 [label="⏩ 3011\n180°回身斩 (P2独有)\n\n5029帧中距", fillcolor="#ffe0c0"];
+        R6 [label="⏩ 3014\n二段重击\n\n5031帧近距", fillcolor="#ffe0c0"];
+        R7 [label="⏩ 3019\n乱舞派生 (P2-B)\n\n5036帧 60545+!60555", fillcolor="#ffe0c0"];
+        R8 [label="⏩ 3033\n飞扑追击\n(可再接 3039 收尾)\n\n5035帧 !60555", fillcolor="#ffe0c0"];
+    }
+
+    // ==================== 教学注释 ====================
+    subgraph cluster_insight {
+        label="📖 设计洞察";
+        style="rounded,filled"; fillcolor="#f0f8ff"; color="#4477bb"; fontsize=11;
+
+        I1 [label="洞察 1: 玩家学的不是招数，是「语法」\n─────\n多次战斗后玩家能预判『这段结束了』，\n但他不是记招表，是识别 Final 的视觉/听觉特征：\n\n• 3039 的震撼落地\n• 3035/3036/3037 的三种大幅度收招\n• 3001 中距的『看似普通但已收』\n\n→ FS 通过 SubGoal 类型 + 动画视觉双重编码，\n  让玩家「学会读 boss 的句号」，无需教程。",
+            shape=note, fillcolor="#e0eefa", fontsize=9];
+
+        I2 [label="洞察 2: 两栖招是「难度上限」\n─────\n如果所有招都是纯 Repeat 或纯 Final，\nboss 完全可预测 → 老手无脑赢。\n\n3001 和 3023 的两栖性：\n• 3001 中距 5026帧: 25% 概率转 Final (rand≤70 走 Repeat, else return true 没接)\n  → 玩家永远不能确定「这次 3001 是不是真结束」\n• 3023 蓄力打断: 主动打断 boss 时才触发 Final\n  → 玩家自己的行为改变 boss 的响应\n\n→ 保留了『再熟练也有意外』的空间。",
+            shape=note, fillcolor="#e0eefa", fontsize=9];
+
+        I3 [label="洞察 3: 每种大招家族有专属 Final\n─────\n• 飞扑家族 → 3039 收尾 (专属)\n• 长吼叫家族 → 3035/3036/3037 三选一收尾 (专属)\n• 蓄力家族 → 3023 (被打断时) (专属)\n• 普通近战家族 → 3001 (中距特定条件) (半专属)\n\n→ Final 招和触发它的起手招在美术上视觉呼应，\n  形成「起手→中段→专属收尾」的完整乐句。\n\n→ 玩家在挑战失败中记住的正是这些「乐句结构」。",
+            shape=note, fillcolor="#e0eefa", fontsize=9];
+
+        I4 [label="洞察 4: 长吼叫的 3-变体收尾\n─────\n5037帧的 Interrupt 分支非常复杂:\n• 无 60586 → 直接 Final 3035\n• 前方30m + rand ≤40/60 → Final 3035/3036/3037\n• 前方999m + rand ≤10/80 → Final 3035/3036/3037\n• 兜底: rand ≤40/60 → Final 3035/3036/3037\n\n→ 同一个『长吼叫大招』有 3 种收尾变体，\n  由距离 + 概率组合决定。\n\n→ 玩家会觉得『长吼叫每次都不一样』，\n  但其实只是从 3 种收尾里抽签。\n  这是「用少量素材制造大量差异感」的技巧。",
+            shape=note, fillcolor="#e0eefa", fontsize=9];
+
+        I1 -> I2 -> I3 -> I4 [style=invis];
+    }
+}
